@@ -1,0 +1,20 @@
+:root {
+  --red:   #e60012;
+  --black: #111;
+  --white: #fff;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: var(--white);
+  color: var(--black);
+}
+
+.btn {
+  background: var(--red);
+  color: var(--white);
+  border: none;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
