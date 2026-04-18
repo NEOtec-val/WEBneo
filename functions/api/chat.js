@@ -52,20 +52,32 @@ async function askAI(userMessage, history = []) {
 
 export async function onRequestPost(context) {
   const { request, env } = context;
-  const data = await request.json();
-  const { message, sessionId } = data;
   
-  if (!message) {
-    return new Response(JSON.stringify({ error: 'Message required' }), {
+  let data;
+  try {
+    data = await request.json();
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' }
     });
   }
   
+  const { message, sessionId } = data;
+  
+  if (!message) {
+    return new Response(JSON.stringify({ error: 'Message required' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    });
+  }
+  
+  console.log('Received message:', message, 'sessionId:', sessionId);
+  
   let sessionData = sessions.get(sessionId);
   if (!sessionData) {
     sessionData = { id: sessionId, history: [], pendingReply: null };
-    sessions.set(sessionId, sessionId);
+    sessions.set(sessionId, sessionData);
   }
   
   try {
