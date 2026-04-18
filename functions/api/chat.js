@@ -1,6 +1,54 @@
 const BOT_TOKEN = '8464260860:AAFd_3NV49XbYo_QCby-ZipZYjmlBn5BGpE';
 const ADMIN_CHAT_ID = '6861350112';
+const OPENROUTER_API_KEY = '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';
 const sessions = new Map();
+
+const SYSTEM_PROMPT = `Eres el asistente virtual de NEOtec Soporte Técnico, una empresa de reparación de equipos informáticos en Cochabamba, Bolivia.
+
+Tu rol es:
+- SIEMPRE pregunta detalles específicos ANTES de dar una solución
+- No des consejos técnicos sin saber de qué equipo se trata (laptop/PC/impresora)
+- Ser amigable, profesional y conciso
+- Usar máximo 2-3 preguntas de seguimiento antes de dar diagnóstico
+
+PROCESO OBLIGATORIO:
+1. Identifica el tipo de equipo (laptop/PC/impresora)
+2. Pregunta 2-3 detalles específicos del problema
+3. Solo DESPUÉS de tener suficiente info, da el diagnóstico
+
+Servicios que ofrecen:
+- Reparación de Laptops, PCs, Impresoras
+- Mantenimiento preventivo, Recuperación de datos
+- WiFi, redes
+- Servicio técnico
+
+Horario: Lunes a Viernes 09:00-19:00, Sábado 09:00-13:00`;
+
+async function askAI(userMessage, history = []) {
+  const messages = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    ...history,
+    { role: 'user', content: userMessage }
+  ];
+  
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'HTTP-Referer': 'https://neotec-catalog.pages.dev',
+      'X-Title': 'NEOtec Support'
+    },
+    body: JSON.stringify({
+      model: 'deepseek/deepseek-chat',
+      messages: messages,
+      max_tokens: 500
+    })
+  });
+  
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || 'Disculpa, tuve un problema. ¿En qué más puedo ayudarte?';
+}
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -17,34 +65,44 @@ export async function onRequestPost(context) {
   let sessionData = sessions.get(sessionId);
   if (!sessionData) {
     sessionData = { id: sessionId, history: [], pendingReply: null };
-    sessions.set(sessionId, sessionData);
+    sessions.set(sessionId, sessionId);
   }
   
   try {
-    const notifyResponse = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: ADMIN_CHAT_ID,
-        text: `🌐 *NUEVO MENSAJE WEB*\n\n💬: "${message}"\n\n🆔 Sesión: ${sessionId}\n\nResponde con: /reply ${sessionId} tu_respuesta`,
-        parse_mode: 'Markdown'
-      })
+    const response = await askAI(message, sessionData.history);
+    
+    sessionData.history.push({ role: 'user', content: message });
+    sessionData.history.push({ role: 'assistant', content: response });
+    
+    try {
+      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: ADMIN_CHAT_ID,
+          text: `🌐 *NUEVO MENSAJE WEB*\n\n💬: "${message}"\n\n🤖 IA respondió: ${response.substring(0, 200)}...`,
+          parse_mode: 'Markdown'
+        })
+      });
+    } catch (e) {
+      console.log('Telegram notification error:', e);
+    }
+    
+    return new Response(JSON.stringify({
+      response: response,
+      sessionId: sessionId
+    }), {
+      headers: { 'Content-Type': 'application/json' }
     });
-    console.log('Telegram notification:', notifyResponse.ok);
   } catch (error) {
-    console.error('Telegram error:', error);
+    console.error('AI Error:', error);
+    return new Response(JSON.stringify({
+      response: 'Disculpa, tuve un problema al procesar tu solicitud. Por favor intenta de nuevo o escríbenos al WhatsApp.',
+      sessionId: sessionId
+    }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
-  
-  const response = generateResponse(message);
-  sessionData.history.push({ role: 'user', content: message });
-  sessionData.history.push({ role: 'assistant', content: response });
-  
-  return new Response(JSON.stringify({
-    response: response,
-    sessionId: sessionId
-  }), {
-    headers: { 'Content-Type': 'application/json' }
-  });
 }
 
 export function onRequestGet(context) {
