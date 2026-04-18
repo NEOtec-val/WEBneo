@@ -2,7 +2,99 @@ import { useState, useEffect, useRef } from 'react';
 /* eslint-disable no-unused-vars */
 import { useCart } from '../context/useCart';
 
-const API_URL = 'https://neotec-api.bot/api/chat';
+// Simulated AI responses - works immediately without API
+const AI_RESPONSES = {
+  // Laptop problems
+  'no enciende laptop': '❓ *PARA LAPTOP:*\n\n1. ¿Las luces LED de carga encienden?\n2. ¿Oyes algún pitido o ruido?\n3. ¿La batería está cargada?\n\nResponde las 3 preg.',
+  'pantalla negra': '❓ *PREGUNTAS:*\n\n1. ¿Visibleces las luces LED?\n2. ¿Conectando monitor externo funciona?\n3. ¿Escuchas el disco o ventilador?\n\nResponde.',
+  'se calienta': '❓ *PREGUNTAS:*\n\n1. ¿El ventilador hace ruido fuerte?\n2. ¿Lo usas sobre cama/blanda?\n3. ¿Desde siempre o reciente?\n\nResponde.',
+  'bateria': '❓ *PREGUNTAS:*\n\n1. ¿Cuántos años tiene la batería?\n2. ¿Cuánto dura la carga (minutos)?\n3. ¿Está hinchada?\n\nResponde.',
+  'touchpad': '❓ *PREGUNTAS:*\n\n1. ¿Responde alguna vez?\n2. ¿Mouse externo funciona?\n3. ¿Presionaste Fn + touchpad?\n\nResponde.',
+  'sonido': '❓ *PREGUNTAS:*\n\n1. ¿El icono de sonido aparece?\n2. ¿Probaste con audífonos?\n3. ¿Subiste el volumen?\n\nResponde.',
+  'teclado': '❓ *PREGUNTAS:*\n\n1. ¿Algunas teclas funcionan?\n2. ¿Conectando teclado USB?\n3. ¿Problema en todas las teclas?\n\nResponde.',
+  'virus': '❓ *PREGUNTAS:*\n\n1. ¿Qué antivirus tienes?\n2. ¿Cuándo fue el último scan?\n3. ¿Qué síntoma ves?\n\nResponde.',
+  // PC problems
+  'no enciende pc': '❓ *PARA PC:*\n\n1. ¿Las luces del motherboard encienden?\n2. ¿El ventilador PSU gira?\n3. ¿Oyes pitidos (cuántos)?\n\nResponde.',
+  'pantalla pc': '❓ *PREGUNTAS:*\n\n1. ¿El monitor tiene luz LED?\n2. ¿Probaste otro cable HDMI?\n3. ¿En otro monitor funciona?\n\nResponde.',
+  'ruido': '❓ *PREGUNTAS:*\n\n1. ¿El ruido viene del disco o ventilador?\n2. ¿Es continuo o intermitente?\n3. ¿Ruido tipo clic-clic?\n\nResponde.',
+  // Printer problems
+  'no imprime': '❓ *PARA IMPRESORA:*\n\n1. ¿Qué marca y modelo?\n2. ¿LEDs parpadean o están fijas?\n3. ¿Conectada por USB o WiFi?\n\nResponde.',
+  'atasco': '❓ *PREGUNTAS:*\n\n1. ¿El atasco es al inicio o final de página?\n2. ¿Qué tipo de papel usas?\n3. ¿Abriste la puerta de atrás?\n\nResponde.',
+  'calidad': '❓ *PREGUNTAS:*\n\n1. ¿Cuánto tiempo tiene la impresora?\n2. ¿Hiciste limpieza de cabezales?\n3. ¿Sale manchado o rayado?\n\nResponde.',
+  // WiFi/Network
+  'wifi': '❓ *PREGUNTAS:*\n\n1. ¿Otras redes WiFi funcionan?\n2. ¿El icono WiFi aparece?\n3. ¿Reiniciaste el router?\n\nResponde.',
+  // General problems
+  'lento': '❓ *PREGUNTAS:*\n\n1. ¿Cuántos años tiene el equipo?\n2. ¿Cuánta RAM tienes (4/8/16GB)?\n3. ¿Tienes antivirus?\n\nResponde.',
+  'pantalla': '❓ *PREGUNTAS:*\n\n1. ¿El monitor tiene luz LED?\n2. ¿Probaste otro cable HDMI?\n3. ¿En otro monitor funciona?\n\nResponde.',
+  // Installation tutorials
+  'instalar hp': '📖 *INSTALAR HP*\n\n*USB:*\n1. Conecta USB, enciende\n2. Inicio > Config > Dispositivos\n3. Agregar impresora\n\n*WiFi:*\n1. Panel > WiFi > tu red\n2. Contraseña\n3. En PC, agregar\n\n⭐ HP Smart: hp.com/go/smart',
+  'instalar epson': '📖 *INSTALAR EPSON*\n\n*USB:*\n1. Conecta USB, enciende\n2. Descarga driver epson.com\n3. Ejecuta instalador\n\n*WiFi:*\n1. Config > Red/WiFi\n2. Tu red + contraseña\n3. Agregar en PC',
+  'instalar canon': '📖 *INSTALAR CANON*\n\n*USB:*\n1. Conecta USB\n2. canon.com/support\n3. Descarga driver\n\n*WiFi:*\n1. Mantén presionado WiFi\n2. Conecta a Canon_XXXXX\n3. Configura tu red',
+  'driver': '📖 *ACTUALIZAR DRIVER*\n\n1. Ve a página oficial\n2. Busca tu modelo\n3. Descarga último driver\n4. Desinstala anterior\n5. Reinicia PC\n6. Instala nuevo',
+  // Tutorials
+  'tutorial': '📖 *TUTORIALES:*\n\n• Instalar HP\n• Instalar Epson\n• Instalar Canon\n• Actualizar driver\n• Configurar WiFi\n\n¿Cuál necesitas?',
+  'como instalar': '📖 *TUTORIALES:*\n\n• Instalar HP\n• Instalar Epson\n• Instalar Canon\n• Actualizar driver\n• Configurar WiFi\n\n¿Cuál necesitas?',
+  // Default
+  'default': '👋 ¡Hola! Soy el asistente de NEOtec.\n\n💻 *Puedo ayudarte con:*\n- Laptop/PC no enciende\n- Equipos lentos\n- Instalar impresoras (HP, Epson, Canon)\n- WiFi, redes\n- Virus, virus\n- Y más...\n\n💬 Describe tu problema:'
+};
+
+function getAIResponse(message) {
+  const lower = message.toLowerCase();
+  
+  // Check each keyword in order
+  const keywords = [
+    'no enciende', 'pantalla negra', 'se calienta', 'bateria', 'touchpad', 'sonido', 'teclado', 'virus',
+    'wifi', 'lento', 'impresora', 'instalar', 'driver', 'tutorial', 'como instalar'
+  ];
+  
+  // Check laptop specific first
+  if (lower.includes('laptop') || lower.includes('notebook') || lower.includes('macbook')) {
+    if (lower.includes('no enciende')) return AI_RESPONSES['no enciende laptop'];
+    if (lower.includes('pantalla')) return AI_RESPONSES['pantalla'];
+    if (lower.includes('calient')) return AI_RESPONSES['se calienta'];
+    if (lower.includes('bateria')) return AI_RESPONSES['bateria'];
+    if (lower.includes('touchpad') || lower.includes('mouse')) return AI_RESPONSES['touchpad'];
+    if (lower.includes('sonid') || lower.includes('audio')) return AI_RESPONSES['sonido'];
+    if (lower.includes('teclad')) return AI_RESPONSES['teclado'];
+    if (lower.includes('virus') || lower.includes('malware')) return AI_RESPONSES['virus'];
+    if (lower.includes('lento')) return AI_RESPONSES['lento'];
+    if (lower.includes('wifi')) return AI_RESPONSES['wifi'];
+    return AI_RESPONSES['default'];
+  }
+  
+  // Check PC specific
+  if (lower.includes('pc') || lower.includes('computadora') || lower.includes('escritorio') || lower.includes('desktop')) {
+    if (lower.includes('no enciende')) return AI_RESPONSES['no enciende pc'];
+    if (lower.includes('pantalla')) return AI_RESPONSES['pantalla pc'];
+    if (lower.includes('ruid')) return AI_RESPONSES['ruido'];
+    if (lower.includes('wifi')) return AI_RESPONSES['wifi'];
+    if (lower.includes('lento')) return AI_RESPONSES['lento'];
+    return AI_RESPONSES['default'];
+  }
+  
+  // Check printer
+  if (lower.includes('impresora') || lower.includes('print')) {
+    if (lower.includes('no imprime')) return AI_RESPONSES['no imprime'];
+    if (lower.includes('atasco')) return AI_RESPONSES['atasco'];
+    if (lower.includes('calid')) return AI_RESPONSES['calidad'];
+    if (lower.includes('hp')) return AI_RESPONSES['instalar hp'];
+    if (lower.includes('epson')) return AI_RESPONSES['instalar epson'];
+    if (lower.includes('canon')) return AI_RESPONSES['instalar canon'];
+    if (lower.includes('driver') || lower.includes('instala')) return AI_RESPONSES['driver'];
+    return AI_RESPONSES['no imprime'];
+  }
+  
+  // Check specific keywords
+  for (const key of keywords) {
+    if (lower.includes(key)) {
+      return AI_RESPONSES[key] || AI_RESPONSES['default'];
+    }
+  }
+  
+  return AI_RESPONSES['default'];
+}
+
+const USE_STATIC_AI = true; // Set to false when API works
 
 function getSessionId() {
   const stored = localStorage.getItem('neotec_session_id');
@@ -73,19 +165,13 @@ Problema: ${form.problema}`;
     setMessages(prev => [...prev, { type: 'user', text: userMsg, time: new Date().toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' }) }]);
     setInputMsg('');
     setTyping(true);
-    try {
-      const resp = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, sessionId })
-      });
-      const data = await resp.json();
+    
+    // Simulate AI thinking delay
+    setTimeout(() => {
+      const response = getAIResponse(userMsg);
       setTyping(false);
-      setMessages(prev => [...prev, { type: 'bot', text: data.response, time: new Date().toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' }) }]);
-    } catch (error) {
-      setTyping(false);
-      setMessages(prev => [...prev, { type: 'bot', text: 'Disculpa, tuve un problema. Puedes escribirnos directamente al WhatsApp.', time: new Date().toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' }) }]);
-    }
+      setMessages(prev => [...prev, { type: 'bot', text: response, time: new Date().toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' }) }]);
+    }, 1000);
   };
 
   const quickActions = [
