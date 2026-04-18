@@ -1,8 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 /* eslint-disable no-unused-vars */
 import { useCart } from '../context/useCart';
 
 const API_URL = 'https://neotec-api.bot/api/chat';
+
+function getSessionId() {
+  const stored = localStorage.getItem('neotec_session_id');
+  if (stored) return stored;
+  const newId = 'web_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  localStorage.setItem('neotec_session_id', newId);
+  return newId;
+}
 
 export default function Soporte() {
   const [form, setForm] = useState({ nombre: '', email: '', problema: '' });
@@ -11,7 +19,8 @@ export default function Soporte() {
   const [messages, setMessages] = useState([]);
   const [inputMsg, setInputMsg] = useState('');
   const [typing, setTyping] = useState(false);
-  const [sessionId] = useState(() => 'web_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9));
+  const [sessionId, setSessionId] = useState(() => getSessionId());
+  const lastReplyRef = useRef(null);
 
   useEffect(() => {
     setMessages([{ 
@@ -22,11 +31,12 @@ export default function Soporte() {
   }, []);
 
   useEffect(() => {
-    constinterval = setInterval(async () => {
+    const interval = setInterval(async () => {
       try {
         const resp = await fetch(`${API_URL}/${sessionId}?t=${Date.now()}`);
         const data = await resp.json();
-        if (data.response && data.hasReply) {
+        if (data.response && data.hasReply && data.response !== lastReplyRef.current) {
+          lastReplyRef.current = data.response;
           setMessages(prev => [...prev, { 
             type: 'bot', 
             text: data.response,
